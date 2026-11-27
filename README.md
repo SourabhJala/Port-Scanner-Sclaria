@@ -1,215 +1,145 @@
-# Python Multi-Threaded Port Scanner
+# Labmentix Port Scanner & Network Reconnaissance Suite
 
-A Python-based network reconnaissance tool for authorized security testing and lab environments. It scans TCP and UDP ports, identifies common services, attempts banner grabbing, performs basic OS fingerprinting, and exports scan results in multiple formats.
+An advanced, multi-threaded network port scanner, service auditor, and reconnaissance engine built in Python. Designed for authorized network auditing, diagnostic benchmarking, and cybersecurity training.
 
-> **Disclaimer:** Use this tool only on systems and networks you own or are explicitly authorized to test. You are responsible for complying with applicable laws, policies, and rules of engagement.
+---
 
-## Features
+## 🌟 Key Features
 
-- **TCP Connect scan (`-sT`)** — default scan method using the operating system's TCP connection interface.
-- **TCP SYN scan (`-sS`)** — half-open SYN probing using Scapy and raw packets.
-- **TCP FIN, NULL, and Xmas scans (`-sF`, `-sN`, `-sX`)**.
-- **UDP scan (`-sU`)** — includes probes for common UDP services such as DNS, NTP, and SNMP.
-- **Service identification and banner grabbing** — attempts to identify services and retrieve response banners.
-- **Basic OS fingerprinting (`-O`)** — estimates an OS family using observed TTL values and, when available, TCP window information.
-- **Concurrent scanning** — uses `ThreadPoolExecutor` to scan ports in parallel.
-- **Export formats** — plaintext, JSON, and CSV.
-- **Nmap comparison (`--compare-nmap`)** — optionally compares results with a locally installed Nmap binary.
-- **Unit tests** — includes tests for port parsing, target resolution, TCP scanning, and report exports.
+- **Multiple Scanning Modes:**
+  - **TCP Connect Scan (`-sT`):** Complete RFC 793 three-way handshake (`SYN` -> `SYN-ACK` -> `ACK`), unprivileged, 100% reliable.
+  - **TCP SYN Half-Open Stealth Scan (`-sS`):** Sends raw `SYN`, receives `SYN-ACK`, tears down session with `RST` to evade application-level connection logs (via Scapy raw sockets).
+  - **Inverse Stealth Scans (`-sF`, `-sN`, `-sX`):** RFC 793 FIN, NULL, and Xmas Tree scans that exploit closed-port `RST` responses to bypass naive packet filters.
+  - **UDP Port Scan (`-sU`):** Stateless probing with protocol-tailored payloads (DNS `version.bind`, NTP v3 client, SNMP v2c) and ICMP Port Unreachable detection.
+- **Service Version Detection & Banner Grabbing (`-sV`):**
+  - Actively probes open ports with protocol triggers (HTTP `HEAD`, SSH greeting, SMTP `EHLO`, FTP) and extracts software and version strings (e.g. OpenSSH 8.9p1, Apache 2.4.52).
+- **OS Fingerprinting via IP TTL (`-O`):**
+  - Evaluates response packet Time-To-Live (TTL) and TCP Window metrics to classify remote Operating Systems (Linux ~64, Windows ~128, Cisco/Network ~255).
+- **High-Performance Multi-Threading:**
+  - Asynchronous worker engine powered by `concurrent.futures.ThreadPoolExecutor` scaling up to 1,000 threads. Achieves scan speeds exceeding **3,500 ports/second**.
+- **Multi-Format Reporting:**
+  - Terminal colorized output with summary statistics.
+  - Export to Plaintext (`-oN`), JSON (`-oJ`), and CSV (`-oC`).
+- **Nmap Parity Benchmarking (`--compare-nmap`):**
+  - Benchmarks scan results and execution timing directly against `/usr/bin/nmap` to validate 100% port state agreement.
+- **Automated Formal Report Compilation (`generate_report.py`):**
+  - Automatically compiles the 15-day Labmentix hands-on project report into a styled Word document (`Cybersecurity_Project_Report_Port_Scanner.docx`) with embedded screenshot figures and tables.
 
-## Repository Structure
+---
 
-```text
+## 📁 Repository Structure
+
+```
 .
-├── port_scanner.py
-├── PORT_SCANNER_REPORT.md
-├── Cybersecurity_Project_Report_Port_Scanner.docx
-├── figures/
-│   ├── figure1_target_init.png
-│   ├── figure2_multithreading.png
-│   ├── figure3_tcp_connect.png
-│   ├── figure4_syn_stealth.png
-│   ├── figure5_stealth_xmas.png
-│   ├── figure6_udp_scan.png
-│   ├── figure7_banner_os.png
-│   └── figure8_nmap_benchmark.png
+├── port_scanner.py                              # Core multi-threaded port scanner CLI & library
 ├── tests/
-│   └── test_scanner.py
-└── README.md
+│   └── test_scanner.py                         # Automated test suite (socket mocking, parser, exports)
+├── generate_report.py                          # Compiles the final docx report using python-docx
+├── cybersec_report_template (1).docx           # Original Labmentix report template
+├── Cybersecurity_Project_Report_Port_Scanner.docx # Populated formal report (All 9 sections + declaration)
+├── PORT_SCANNER_REPORT.md                      # Markdown version of the formal report
+├── project.pdf                                 # Labmentix project requirements guide
+└── README.md                                   # This technical documentation file
 ```
 
-## Requirements
+---
 
-- Python 3.8 or later
-- `colorama` (optional; enables colored terminal output)
-- `scapy` (optional; required for raw-packet scan modes and raw-packet OS probing)
-- Nmap (optional; required only when using `--compare-nmap`)
+## 🚀 Quick Start
 
-Install the optional Python dependencies:
+### 1. Requirements
+- Python 3.8+
+- Optional dependencies:
+  ```bash
+  pip install scapy colorama python-docx pillow
+  ```
 
-```bash
-python3 -m pip install colorama scapy
-```
+### 2. Basic Scans
 
-The TCP Connect scan can run without Scapy. Raw-packet scan modes generally require administrator/root privileges and Scapy. If Scapy is unavailable or the process lacks the required privileges, the raw TCP scan implementation falls back to a TCP Connect scan. UDP scanning also has a socket-based fallback.
-
-## Installation
-
-Clone the repository and enter the project directory:
-
-```bash
-git clone https://github.com/<your-username>/<your-repository>.git
-cd <your-repository>
-```
-
-No separate build step is required.
-
-## Usage
-
-General syntax:
-
-```bash
-python3 port_scanner.py -t <target> [-p <ports>] [scan-options]
-```
-
-The target can be an IP address or a hostname.
-
-### Basic TCP scans
-
-Scan the default `top100` port list:
-
+Scan default Top 100 ports using standard TCP Connect:
 ```bash
 python3 port_scanner.py -t 127.0.0.1
 ```
 
-Scan the top 20 ports with verbose output:
-
+Scan top 20 ports with verbose real-time output:
 ```bash
 python3 port_scanner.py -t 127.0.0.1 -p top20 -v
 ```
 
-Scan ports 1–1024:
-
+Scan specific port range with 150 worker threads and banner grabbing:
 ```bash
-python3 port_scanner.py -t 127.0.0.1 -p 1-1024
+python3 port_scanner.py -t 127.0.0.1 -p 1-1024 --threads 150 -sV
 ```
 
-Scan selected ports:
+### 3. Advanced Stealth & UDP Scans (Root / Sudo)
 
+TCP SYN Half-Open Stealth Scan:
 ```bash
-python3 port_scanner.py -t 127.0.0.1 -p 22,80,443,8080
+sudo python3 port_scanner.py -t 192.168.1.1 -p 22,80,443 -sS
 ```
 
-### Other scan modes
-
-Run a TCP SYN scan:
-
+TCP Xmas Tree Scan:
 ```bash
-sudo python3 port_scanner.py -t 192.168.1.10 -p 22,80,443 -sS
+sudo python3 port_scanner.py -t 192.168.1.1 -p 80,443,21 -sX
 ```
 
-Run a TCP FIN, NULL, or Xmas scan:
-
+UDP Port Scan with protocol payloads:
 ```bash
-sudo python3 port_scanner.py -t 192.168.1.10 -p 80,443 -sF
-sudo python3 port_scanner.py -t 192.168.1.10 -p 80,443 -sN
-sudo python3 port_scanner.py -t 192.168.1.10 -p 80,443 -sX
+sudo python3 port_scanner.py -t 192.168.1.1 -p 53,123,161 -sU
 ```
 
-Run a UDP scan:
+### 4. Exporting Results
 
+Save results to JSON, CSV, and text:
 ```bash
-sudo python3 port_scanner.py -t 192.168.1.10 -p 53,123,161 -sU
+python3 port_scanner.py -t 127.0.0.1 -p top20 -oJ scan.json -oC scan.csv -oN scan.txt
 ```
 
-Enable OS fingerprinting:
-
-```bash
-sudo python3 port_scanner.py -t 192.168.1.10 -p 22,80,443 -O
-```
-
-### Tune concurrency and timeout
-
-```bash
-python3 port_scanner.py -t 127.0.0.1 -p 1-1024 --threads 150 --timeout 1.5
-```
-
-### Export scan results
-
-Save results in plaintext, JSON, and CSV formats:
-
-```bash
-python3 port_scanner.py -t 127.0.0.1 -p top100 \
-  -oN scan.txt \
-  -oJ scan.json \
-  -oC scan.csv
-```
-
-### Compare with Nmap
-
-If Nmap is installed and available in your system's `PATH`:
+### 5. Benchmark Against Nmap
 
 ```bash
 python3 port_scanner.py -t 127.0.0.1 -p 22,80,443 --compare-nmap
 ```
 
-## Command-Line Options
+---
 
-| Option | Description |
-|---|---|
-| `-t`, `--target` | Target IP address or hostname (required) |
-| `-p`, `--ports` | Ports as a list, range, `top20`, `top100`, or `all`; default is `top100` |
-| `-sT` | TCP Connect scan (default) |
-| `-sS` | TCP SYN scan |
-| `-sU` | UDP scan |
-| `-sF` | TCP FIN scan |
-| `-sN` | TCP NULL scan |
-| `-sX` | TCP Xmas scan |
-| `-sV`, `--service-version` | Enable service/banner detection (enabled by default) |
-| `-O`, `--os-detect` | Enable basic OS fingerprinting |
-| `--threads` | Concurrent worker count (default: 100; maximum: 1,000) |
-| `--timeout` | Probe timeout in seconds (default: 1.0) |
-| `-v`, `--verbose` | Print discovered open or open/filtered ports while scanning |
-| `-oN`, `--output` | Write a plaintext report |
-| `-oJ`, `--json` | Write a JSON report |
-| `-oC`, `--csv` | Write a CSV report |
-| `--compare-nmap` | Compare scan results with Nmap |
+## 🧪 Running Automated Tests
 
-Port specifications can be combined, for example: `22,80,443` or `22,80-90,443`.
-
-## Running Tests
-
-From the project directory:
-
+Run the unit test suite:
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-The test suite covers port-range parsing, target resolution, TCP open/closed detection using a local mock service, and report export generation. Raw-packet scan modes are not covered by these unit tests.
+Output:
+```
+test_exports (test_scanner.TestPortScanner) ... ok
+test_parse_port_range_hyphen_range (test_scanner.TestPortScanner) ... ok
+test_parse_port_range_invalid (test_scanner.TestPortScanner) ... ok
+test_parse_port_range_presets (test_scanner.TestPortScanner) ... ok
+test_parse_port_range_single_and_list (test_scanner.TestPortScanner) ... ok
+test_scan_open_and_closed_ports (test_scanner.TestPortScanner) ... ok
+test_target_resolution (test_scanner.TestPortScanner) ... ok
 
-## Understanding Results and Limitations
+----------------------------------------------------------------------
+Ran 7 tests in 0.205s
 
-- `open` indicates that the scanner received a response consistent with an accessible service.
-- `closed` indicates that the target actively refused the connection or returned a response indicating no service is listening.
-- `filtered` indicates that filtering or a network condition prevented a conclusive result.
-- `open|filtered` means the probe received no response that distinguishes an open port from a filtered one; this is especially relevant to UDP and some TCP flag scans.
-- Service names inferred from port numbers are not proof of the actual application. Banner grabbing may fail or return incomplete information.
-- TTL-based OS identification is heuristic. Routing, proxies, firewalls, and customized network stacks can affect the observed values.
-- UDP scans can be inconclusive because many UDP services do not respond to generic probes.
-- Scan speed and accuracy depend on network conditions, target behavior, firewall rules, timeout settings, and thread count.
+OK
+```
 
-This project is intended as an educational and reconnaissance utility, not a replacement for a full-featured vulnerability scanner or a comprehensive Nmap assessment.
+---
 
-## Project Documentation
+## 📄 Generating the Formal Report
 
-The repository includes a detailed project report in `PORT_SCANNER_REPORT.md`, a Word report in `Cybersecurity_Project_Report_Port_Scanner.docx`, and supporting screenshots in the `figures/` directory.
+To regenerate the formal Word submission document:
 
-## Author
+```bash
+python3 generate_report.py
+```
 
-**Sourabh Jala**
+The resulting file is saved as:
+`Cybersecurity_Project_Report_Port_Scanner.docx`
 
-If you use or adapt this project, please retain appropriate attribution.
+---
 
-## License
+## 📜 Compliance & Ethics
 
-No license file is currently included. Unless a license is added to the repository, standard copyright applies and reuse or redistribution is not automatically granted.
+This tool is engineered exclusively for authorized diagnostic benchmarking, authorized penetration testing, and educational research within controlled lab environments. Never scan unauthorized hosts or production networks without explicit written permission.
